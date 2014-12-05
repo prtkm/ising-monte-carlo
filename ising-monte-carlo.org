@@ -1,0 +1,40 @@
+* Question 5
+
+** Prove that random number generator is reliable
+
+We could use either python's in-built random number generator or use =numpy.random=. Both use the /Mersenne twister/ pseudo-random number generator, so we would expect to get a uniform random distribution. We test this here.
+
+*** Using the built-in random function
+    
+#+BEGIN_SRC python
+import random
+import matplotlib.pyplot as plt
+import numpy as np
+
+p = np.zeros(int(1e6))
+for i in xrange(int(1e6)):
+   p[i] = random.random()
+
+plt.plot(range(len(p)), p, '.')
+plt.savefig('1.png')
+plt.show()    
+
+#+END_SRC
+
+#+RESULTS:
+
+*** Using =numpy.random=
+
+#+BEGIN_SRC python
+import numpy as np
+import matplotlib.pyplot as plt
+plt.plot(range(100000), np.random.random(100000), '.')
+plt.show()
+#+END_SRC
+
+#+RESULTS:
+
+That looks pretty uniform to me!
+
+
+** 
