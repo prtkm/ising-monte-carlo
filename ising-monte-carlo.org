@@ -1,102 +1,315 @@
 * Question 5
+  
+** A reliable random number generator
 
-** Prove that random number generator is reliable
-
-We could use either python's in-built random number generator or use =numpy.random=. Both use the /Mersenne twister/ pseudo-random number generator, so we would expect to get a uniform random distribution. We test this here.
-
-*** Using the built-in random function
-    
-#+BEGIN_SRC python
-import random
-import matplotlib.pyplot as plt
-import numpy as np
-
-p = np.zeros(int(1e6))
-for i in xrange(int(1e6)):
-   p[i] = random.random()
-
-plt.plot(range(len(p)), p, '.')
-plt.savefig('1.png')
-plt.show()    
-
-#+END_SRC
-
-#+RESULTS:
-
-*** Using =numpy.random=
+We shall use  =numpy.random= as our random number generator. It uses the /Mersenne twister/ pseudo-random number generator, so we would expect to get a uniform random distribution. We test this here. Let us generate a 10000 random numbers and plot them.
 
 #+BEGIN_SRC python
 import numpy as np
 import matplotlib.pyplot as plt
-plt.plot(range(100000), np.random.random(100000), '.')
+
+plt.plot(range(10000), np.random.random(10000), '.')
+plt.savefig('images/numpy-random.png')
 plt.show()
 #+END_SRC
 
 #+RESULTS:
 
-That looks pretty uniform to me!
+[[./images/numpy-random.png]]
+
+That looks pretty uniform!
 
 
-** 2-D Ising Model
 
-This code has been adapted from Dr. Gezelter's example.
+** 2-D Ising Model Simulator
 
-#+BEGIN_SRC python
+Here is a script that simulates the 2D Ising Model. The main ideas are as follows:
+
+-  We create a n \times n lattice with a random spin configuration
+
+- For the purposes of our Monte Carlo simulation we start off by randomly flipping a spin and calculate the change in energy, \Delta E
+
+- If \Delta E is negative, we accept the new configuration
+
+- If \Delta E is positive, we select a random number between 0 and 1, and accept the configuration only if the number is less than \(e^{-\Delta E / k_{B}T}\). This is the Metropolis techinque. This saves computation time by seleting more probable configurations.
+
+- We use periodic boundary conditions. This effectively reduces the geometry of the problem to a torus.
+
+#+BEGIN_SRC python :tangle ising.py
 from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 def init_lattice(n):
+
+    '''Create a nxn lattice with random spin configuration'''
+    
     lattice = np.random.choice([1, -1], size=(n, n))
     return lattice
 
-def deltaE(S0, Sn, H, J):
-    '''This function calculates the energy change upon a hypothetical flip.
-    '''
+
+def deltaE(S0, Sn, J, H):
+
+    '''Energy difference for a spin flip'''
+    
     return 2 * S0 * (H + J * Sn)
 
-def ising(n=200,nsteps=500000,H=0,J=1,T=1):
+
+def ising(n=200, nsteps=500000, H=0, J=1, T=1):
+
+    '''Ising Model Simulator'''
     
     lattice = init_lattice(n)
     energy = 0
     energies = []
-    sums = []
+    spins = []
+
     for step in range(nsteps):
-        i = np.random.randint(0, n)
-        j = np.random.randint(0,n)
-    
-        Sn = lattice[(i - 1)%n, j] + lattice[(i + 1) %n, j] + \
-             lattice[i, (j-1) % n] + lattice[i, (j + 1) % n]
+
+        i = np.random.randint(n)
+        j = np.random.randint(n)
+
+        # Periodic Boundary Condition
+        Sn = lattice[(i - 1) % n, j] + lattice[(i + 1) % n, j] + \
+             lattice[i, (j - 1) % n] + lattice[i, (j + 1) % n]
 
         dE = deltaE(lattice[i, j], Sn, J, H)
 
         if dE < 0 or np.random.random() < np.exp(-dE/T):
-            
-            lattice[i,j] = -lattice[i,j]
+            lattice[i, j] = -lattice[i, j]
             energy += dE
             energies.append(energy)
-        sums.append(np.sum(lattice)/n**2)
-    return lattice, energies, sums
-
-n = 1000
-nsteps = 5000
-for T in [1, 2, 3, 4]:
-
-    lattice, energies, sums= ising(n=n, nsteps = nsteps, T = T)
-
-    plt.plot(range(len(sums)), sums)
-#plt.ylim(-1, 2)
-plt.show()
-'''
-for n in [20]:
-    all_sums = []
-    for T in np.logspace(0.5, 1.7, 100):
-        lattice, energies, sums= ising(n=n, nsteps = 30000, T = T)
-        all_sums.append(sums[-1])
-    plt.plot(np.linspace(0.5,1.7, 100), all_sums, 'o')
-plt.show()
-'''
+         # Note that the spin is collected at every step
+        avg_spin = np.sum(lattice) / (n**2)
+        spins.append(avg_spin)
+    return lattice, energies, spins
 #+END_SRC
 
 #+RESULTS:
+
+
+** Average Spin Trajectories
+
+Now we plot the average spin trajectories at three different temperatures.
+
+*Note:* The spin is collected at every step of the Monte Carlo simulation, regardless of whether we accepted the energy or not.
+
+#+BEGIN_SRC python
+import matplotlib.pyplot as plt
+from ising import *
+
+temperatures = [0.5, 2.27, 5.0]
+
+for T in temperatures:
+
+    lattice, energies, spins = ising(n=20, nsteps = 500000, T=T)
+    plt.plot(range(len(spins)), spins, label = 'T = {0}'.format(T))
+plt.legend(loc = 'best')
+plt.xlabel('nSteps')
+plt.ylabel('Average Spin')
+plt.ylim(-1.2, 1.2)
+plt.savefig('images/average-spin.png')
+plt.show()
+
+#+END_SRC
+
+#+RESULTS:
+
+[[./images/average-spin.png]]
+
+This looks pretty much like what one would expect. At a low temperature the average spin per site is 1, meaning that all the points in the lattice have the same spin. At a temperature close to Onsager's T_{c}, the system has an intermediate spin, and at a high temperature, the system has no net spin. The high and low temperature plots seem to converge faster than the one intermediate temperature. We also noticed that the simulations were getting stuck in a local minima from time to time, though we have not shown that here.
+
+
+
+** Magnetization and Susceptibility
+
+#+BEGIN_SRC python
+import matplotlib.pyplot as plt
+from ising import *
+
+Ns = [10, 20, 50, 100, 1000]  # System Size
+T_Tcs = np.linspace(0.5, 1.7, 20)  # T/Tc
+Tc = 2.268  # Onsager's Tc
+
+plt.figure()
+ax1 = plt.subplot(211)
+ax2 = plt.subplot(212)
+
+for n in Ns:
+    Ms = []  # Magnetization list
+    Xs = []
+    for T_Tc in T_Tcs:
+
+        T = T_Tc * Tc
+        lattice, energies, spins = ising(n=n, nsteps=5000000, T=T)
+        spins = np.array(spins)
+        avg_M = np.abs(np.sum(spins) / len(spins))
+        M_sq = np.sum(spins ** 2) / len(spins)
+
+        X = 1 / T * (M_sq - avg_M**2)
+        Ms.append(avg_M)
+        Xs.append(X)
+
+    ax1.plot(T_Tcs, Ms, 'o--', label = '${0}\\times{0}$'.format(n))
+    ax2.plot(T_Tcs, Xs, 'o--')
+
+plt.legend(loc = 'best')
+ax1.set_ylabel('M$_{L}$')
+ax2.set_ylabel('$\chi_{L}$')
+plt.xlabel('T/T$_{c}$')
+ax2.set_yticks(np.arange(0.0, 0.3, 0.1))
+ax1.legend(loc = 'best')
+plt.savefig('images/magnetization.png')
+plt.show()
+
+#+END_SRC
+
+#+RESULTS:
+
+   
+** Gezelter's Code
+
+#+BEGIN_SRC python
+from __future__ import division
+from math import exp
+from random import randrange,choice,random
+from numpy import zeros, sum
+import numpy as np
+import matplotlib.pyplot as plt
+
+def init_ising_lattice(n):
+    lattice = zeros((n,n),dtype=int)
+    options = [-1,1]
+    for i in range(n):
+        for j in range(n):
+            lattice[i,j] = choice(options)
+    return lattice
+
+def energydiff(S0,Sn,J,H): return 2*S0*(H+J*Sn)
+
+def ising(n=200,nsteps=500000,H=0,J=1,T=1):
+    lattice = init_ising_lattice(n)
+    energy = 0
+    
+    energies = []
+    mags = []
+    for step in range(nsteps):
+        i = randrange(n)
+        j = randrange(n)
+        Sn = lattice[(i-1)%n,j]+lattice[(i+1)%n,j]+\
+             lattice[i,(j-1)%n]+lattice[i,(j+1)%n]
+        dE = energydiff(lattice[i,j],Sn,J,H)
+        if dE < 0 or np.random.random() < exp(-dE/T):
+            lattice[i,j] = -lattice[i,j]
+            energy += dE
+        
+            energies.append(energy)
+        mag = np.sum(lattice)/n**2
+        mags.append(mag)
+    return lattice,energies, mags
+
+# Plotting Energies
+for T in [8.04]:
+
+    lattice, energies, mags = ising(T=T)
+    plt.plot(range(len(energies)), energies)
+
+plt.show()
+#+END_SRC
+
+#+RESULTS:
+
+
+** Tinkter
+
+#+BEGIN_SRC python
+# ising.py
+# Simulates the two-dimensional Ising model using the Metropolis algorithm
+# This version uses Tkinter for the GUI
+# By Dan Schroeder, Weber State University, January 2013
+
+import Tkinter, numpy, random, math
+
+size = 50                           # number of sites in a lattice row (change if desired)
+squareWidth = 10                    # width of one site in pixels (change if desired)
+canvasWidth = size * squareWidth    # full width of canvas in pixels
+s = numpy.ones((size, size), int)   # 2D array of dipoles (1=up, -1=down)
+running = False                     # will be true when simulation is running
+
+theWindow = Tkinter.Tk()            # create the GUI window
+theWindow.title("Ising Model")
+theWindow.geometry('+50+50')        # get the window away from the corner
+
+# Here's the Canvas where we draw the lattice using a Tkinter PhotoImage:
+theCanvas = Tkinter.Canvas(theWindow, width=canvasWidth, height=canvasWidth)
+theCanvas.pack()                    # put it at the top of the window
+theImage = Tkinter.PhotoImage(width=canvasWidth, height=canvasWidth)
+theCanvas.create_image((0, 0), image=theImage, anchor="nw", state="normal")
+# The coordinates (3, 3) are a kludge to eliminate a mysterious offset that occurs otherwise.
+
+# Function called when Start/Stop button is pressed:
+def startStop():
+    global running
+    running = not running
+    if running:
+        goButton.config(text="Pause")
+    else:
+        goButton.config(text="Resume")
+
+# Create the GUI controls:
+controlFrame = Tkinter.Frame(theWindow)        # a frame to hold the GUI controls
+controlFrame.pack()                            # put it below the canvas
+tLabel = Tkinter.Label(controlFrame, text="Temperature: ")
+tLabel.pack(side="left")
+tSlider = Tkinter.Scale(controlFrame, from_=0.01, to=10.0, resolution=0.01, length=120, orient="horizontal")
+tSlider.pack(side="left")
+tSlider.set(2.27)                              # set to critical temperature initially
+spacer = Tkinter.Frame(controlFrame, width=40)
+spacer.pack(side="left")
+goButton = Tkinter.Button(controlFrame, text="Start", width=8, command=startStop)
+goButton.pack(side="left")
+
+# Function to color the square representing site (i,j):
+def colorSquare(i, j):
+    theColor = "#7000ff" if s[i,j]==1 else "#ffffff"    # purple and white
+    theImage.put(theColor, to=(i*squareWidth,j*squareWidth,(i+1)*squareWidth,(j+1)*squareWidth))
+    # the "put" function colors the indicated rectangle within the image
+
+# Function to calculate energy change upon hypothetical flip (with pbc):
+def deltaE(i,j):
+    leftS = s[size-1,j] if i==0 else s[i-1,j]
+    rightS = s[0,j] if i==size-1 else s[i+1,j]
+    topS = s[i,size-1] if j==0 else s[i,j-1]
+    bottomS = s[i,0] if j==size-1 else s[i,j+1]
+    return 2.0 * s[i,j] * (leftS + rightS + topS + bottomS)
+
+# Main simulation "loop" schedules a call to itself upon completion:
+def simulate():
+    if running:
+        T = tSlider.get()                    # get the current temperature
+        for step in range(1000):             # (change the number of steps as desired)
+            i = int(random.random()*size)    # choose a random row and column
+            j = int(random.random()*size)
+            eDiff = deltaE(i,j)
+            if eDiff <= 0 or random.random() < math.exp(-eDiff/T):    # Metropolis!
+                s[i,j] = -s[i,j]
+                colorSquare(i, j)
+    theWindow.after(1,simulate)              # come back in one millisecond
+
+# Initialize to a random array, and draw it as we go:
+for i in range(size):
+    for j in range(size):
+        s[i,j] = 1 if random.random()<0.5 else -1
+        colorSquare(i,j)
+
+simulate()                # start the simulation!
+theWindow.mainloop()      # start the GUI event loop
+
+#+END_SRC
+
+#+RESULTS:
+
+
+
 
