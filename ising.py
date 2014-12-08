@@ -6,6 +6,7 @@
 from math import exp
 from random import randrange,choice,random
 from numpy import zeros
+import numpy as np
 
 def init_ising_lattice(n):
     lattice = zeros((n,n),dtype=int)
@@ -21,6 +22,7 @@ def ising(n=200,nsteps=500000,H=0,J=1,T=1):
     lattice = init_ising_lattice(n)
     energy = 0
     energies = []
+    lattices = []
     for step in range(nsteps):
         i = randrange(n)
         j = randrange(n)
@@ -30,8 +32,9 @@ def ising(n=200,nsteps=500000,H=0,J=1,T=1):
         if dE < 0 or random() < exp(-dE/T):
             lattice[i,j] = -lattice[i,j]
             energy += dE
+            lattices.append(lattice)
             energies.append(energy)
-    return lattice,energies
+    return lattices,energies
 
 def pil_image(lattice,fname="ising.png"):
     # creates a snapshot image of the current state of the lattice
@@ -49,22 +52,28 @@ def pil_image(lattice,fname="ising.png"):
 
 def main():
     import sys,getopt
+    import matplotlib.pyplot as plt
     opts,args = getopt.getopt(sys.argv[1:],'n:s:h:j:t:')
     n = 200
     nsteps = 500000
     H = 0
     J = 1
-    T = 1
+    T = 20
     for key,val in opts:
         if key == '-n': n = int(val)
         elif key == '-s': nsteps = int(val)
         elif key == '-h': H = float(val)
         elif key == '-j': J = float(val)
 	elif key == '-t': T = float(val)
-    lattice,energies = ising(n,nsteps,H,J,T)
-    pil_image(lattice)
-
-    plot(energies)
+    lattices,energies = ising(n,nsteps,H,J,T)
+    S = []
+    for lattice in lattices:
+        S.append(np.sum(lattice)/float(n**2))
+    plt.plot(range(len(S)), S)
+    plt.show()
+    #pil_image(lattice)
+    #print len(energies)/float(nsteps)
+    #plot(energies)
     return
 
 def plot(energies):

@@ -37,4 +37,66 @@ plt.show()
 That looks pretty uniform to me!
 
 
-** 
+** 2-D Ising Model
+
+This code has been adapted from Dr. Gezelter's example.
+
+#+BEGIN_SRC python
+from __future__ import division
+import numpy as np
+import matplotlib.pyplot as plt
+
+def init_lattice(n):
+    lattice = np.random.choice([1, -1], size=(n, n))
+    return lattice
+
+def deltaE(S0, Sn, H, J):
+    '''This function calculates the energy change upon a hypothetical flip.
+    '''
+    return 2 * S0 * (H + J * Sn)
+
+def ising(n=200,nsteps=500000,H=0,J=1,T=1):
+    
+    lattice = init_lattice(n)
+    energy = 0
+    energies = []
+    sums = []
+    for step in range(nsteps):
+        i = np.random.randint(0, n)
+        j = np.random.randint(0,n)
+    
+        Sn = lattice[(i - 1)%n, j] + lattice[(i + 1) %n, j] + \
+             lattice[i, (j-1) % n] + lattice[i, (j + 1) % n]
+
+        dE = deltaE(lattice[i, j], Sn, J, H)
+
+        if dE < 0 or np.random.random() < np.exp(-dE/T):
+            
+            lattice[i,j] = -lattice[i,j]
+            energy += dE
+            energies.append(energy)
+        sums.append(np.sum(lattice)/n**2)
+    return lattice, energies, sums
+
+n = 1000
+nsteps = 5000
+for T in [1, 2, 3, 4]:
+
+    lattice, energies, sums= ising(n=n, nsteps = nsteps, T = T)
+
+    plt.plot(range(len(sums)), sums)
+#plt.ylim(-1, 2)
+plt.show()
+'''
+for n in [20]:
+    all_sums = []
+    for T in np.logspace(0.5, 1.7, 100):
+        lattice, energies, sums= ising(n=n, nsteps = 30000, T = T)
+        all_sums.append(sums[-1])
+    plt.plot(np.linspace(0.5,1.7, 100), all_sums, 'o')
+plt.show()
+'''
+#+END_SRC
+
+#+RESULTS:
+
