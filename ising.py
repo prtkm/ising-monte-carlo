@@ -27,7 +27,7 @@ def ising(n=200, nsteps=500000, H=0, J=1, T=1):
     energy = 0
     energies = []
     spins = []
-
+    spin = np.sum(lattice)
     for step in range(nsteps):
 
         i = np.random.randint(n)
@@ -44,6 +44,6 @@ def ising(n=200, nsteps=500000, H=0, J=1, T=1):
             energy += dE
             energies.append(energy)
          # Note that the spin is collected at every step
-        avg_spin = np.sum(lattice) / (n**2)
-        spins.append(avg_spin)
+            spin += 2*lattice[i, j]
+        spins.append(spin/n ** 2)
     return lattice, energies, spins
