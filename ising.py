@@ -1,7 +1,6 @@
 
 from __future__ import division
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 def init_lattice(n):
@@ -28,7 +27,7 @@ def ising(n=200, nsteps=500000, H=0, J=1, T=1):
     energies = []
     spins = []
     spin = np.sum(lattice)
-    for step in range(nsteps):
+    for step in xrange(nsteps):
 
         i = np.random.randint(n)
         j = np.random.randint(n)
@@ -45,5 +44,40 @@ def ising(n=200, nsteps=500000, H=0, J=1, T=1):
             energies.append(energy)
          # Note that the spin is collected at every step
             spin += 2*lattice[i, j]
-        spins.append(spin/n ** 2)
+        spins.append(spin)
     return lattice, energies, spins
+
+def write_job_script(wd='./', n=10, s=1000, i=1, T=1., nprocs=1, pe='smp', name = 'batch', q = 'long'):
+    '''
+    This is a function that writes a script to submit MC jobs
+    '''
+    
+    script='''#!/bin/bash
+#$ -N {0}
+#$ -pe {1} {2}
+#$ -q {3}
+#$ -cwd
+'''.format(name, pe, nprocs, q)
+       
+
+    script+='mpirun -np $NSLOTS python /afs/crc.nd.edu/user/p/pmehta1/ising-monte-carlo/spins.py -n {0} -s {1} -i {2} -t {3} -w {4}'.format(n, s, i, T, wd)
+
+    with open('{0}/qscript'.format(wd), 'w') as f:
+        f.write(script)
+
+def run_job(wd):
+    import os
+    from subprocess import Popen, PIPE
+    cwd = os.getcwd()
+    os.chdir(wd)
+    p = Popen(['qsub', 'qscript'], stdout=PIPE, stderr=PIPE)
+    out, err = p.communicate()
+    
+    if out == '' or err !='':
+        raise Exception('something went wrong in qsub:\n\n{0}'.format(err))
+    jobid = out.split()[2]
+    f = open('jobid', 'w')
+    f.write(jobid)
+    f.close()
+    os.chdir(cwd)
+    return out.strip()    

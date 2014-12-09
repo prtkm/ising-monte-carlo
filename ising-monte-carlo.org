@@ -34,11 +34,10 @@ Here is a script that simulates the 2D Ising Model. The main ideas are as follow
 - If \Delta E is positive, we select a random number between 0 and 1, and accept the configuration only if the number is less than \(e^{-\Delta E / k_{B}T}\). This is the Metropolis techinque. This saves computation time by seleting more probable configurations.
 
 - We use periodic boundary conditions. This effectively reduces the geometry of the problem to a torus.
-
+  
 #+BEGIN_SRC python :tangle ising.py
 from __future__ import division
 import numpy as np
-import matplotlib.pyplot as plt
 
 
 def init_lattice(n):
@@ -65,7 +64,7 @@ def ising(n=200, nsteps=500000, H=0, J=1, T=1):
     energies = []
     spins = []
     spin = np.sum(lattice)
-    for step in range(nsteps):
+    for step in xrange(nsteps):
 
         i = np.random.randint(n)
         j = np.random.randint(n)
@@ -82,8 +81,45 @@ def ising(n=200, nsteps=500000, H=0, J=1, T=1):
             energies.append(energy)
          # Note that the spin is collected at every step
             spin += 2*lattice[i, j]
-        spins.append(spin/n ** 2)
+        spins.append(spin)
     return lattice, energies, spins
+
+
+
+def write_job_script(wd='./', n=10, s=1000, i=1, T=1., nprocs=1, pe='smp', name = 'batch', q = 'long'):
+    '''
+    This is a function that writes a script to submit MC jobs
+    '''
+    
+    script='''#!/bin/bash
+#$ -N {0}
+#$ -pe {1} {2}
+#$ -q {3}
+#$ -cwd
+'''.format(name, pe, nprocs, q)
+       
+
+    script+='mpirun -np $NSLOTS python /afs/crc.nd.edu/user/p/pmehta1/ising-monte-carlo/spins.py -n {0} -s {1} -i {2} -t {3} -w {4}'.format(n, s, i, T, wd)
+
+    with open('{0}/qscript'.format(wd), 'w') as f:
+        f.write(script)
+
+def run_job(wd):
+    import os
+    from subprocess import Popen, PIPE
+    cwd = os.getcwd()
+    os.chdir(wd)
+    p = Popen(['qsub', 'qscript'], stdout=PIPE, stderr=PIPE)
+    out, err = p.communicate()
+    
+    if out == '' or err !='':
+        raise Exception('something went wrong in qsub:\n\n{0}'.format(err))
+    jobid = out.split()[2]
+    f = open('jobid', 'w')
+    f.write(jobid)
+    f.close()
+    os.chdir(cwd)
+    return out.strip()    
 #+END_SRC
 
 #+RESULTS:
@@ -104,6 +140,7 @@ temperatures = [0.5, 2.27, 5.0]
 for T in temperatures:
 
     lattice, energies, spins = ising(n=20, nsteps = 500000, T=T)
+    spins = np.array(spins) / 20. ** 2
     plt.plot(range(len(spins)), spins, label = 'T = {0}'.format(T))
 plt.legend(loc = 'best')
 plt.xlabel('nSteps')
@@ -123,12 +160,12 @@ This looks pretty much like what one would expect. At a low temperature the aver
 
 
 ** Magnetization and Susceptibility
-
+   
 #+BEGIN_SRC python
 import matplotlib.pyplot as plt
 from ising import *
 
-Ns = [10, 20, 50, 100, 1000]  # System Size
+Ns = [20]  # System Size
 T_Tcs = np.linspace(0.5, 1.7, 20)  # T/Tc
 Tc = 2.268  # Onsager's Tc
 
@@ -142,7 +179,7 @@ for n in Ns:
     for T_Tc in T_Tcs:
 
         T = T_Tc * Tc
-        lattice, energies, spins = ising(n=n, nsteps=5000000, T=T)
+        lattice, energies, spins = ising(n=n, nsteps=500000, T=T)
         spins = np.array(spins)
         avg_M = np.abs(np.sum(spins) / len(spins))
         M_sq = np.sum(spins ** 2) / len(spins)
@@ -158,16 +195,84 @@ plt.legend(loc = 'best')
 ax1.set_ylabel('M$_{L}$')
 ax2.set_ylabel('$\chi_{L}$')
 plt.xlabel('T/T$_{c}$')
-ax2.set_yticks(np.arange(0.0, 0.3, 0.1))
+#ax2.set_yticks(np.arange(0.0, 0.3, 0.1))
 ax1.legend(loc = 'best')
 plt.savefig('images/magnetization.png')
 plt.show()
-
 #+END_SRC
 
 #+RESULTS:
 
-   
+
+** Scripts
+
+*** Submission python script
+#+BEGIN_SRC python :tangle spins.py
+#!/usr/bin/env python
+import os
+from ising import ising
+import sys,getopt
+opts,args = getopt.getopt(sys.argv[1:],'n:s:i:t:w')
+
+for key, val in opts:
+
+    if key == '-n': n = int(val)
+    elif key == '-s': nsteps = int(val)
+    elif key == '-t': T = float(val)
+    elif key == '-i': index = int(val)
+    elif key == '-w': wd = str(val)
+lattice, energies, spins = ising(n=n, nsteps=nsteps, T=T)
+    
+with open(os.path.join(wd,'temp-{1}.out'.format(wd, index)), 'w') as f:
+    for i, spin in enumerate(spins):
+        if i % 1000 == 0:
+            f.write("{0}\t{1}\n".format(i, spin))   
+#+END_SRC
+
+#+RESULTS:
+
+
+
+    
+*** Submitting jobs
+
+#+BEGIN_SRC python
+import matplotlib.pyplot as plt
+from ising import *
+import os
+
+Ns = [10, 20, 50, 100, 1000]  # System Size
+Ns = [1000]
+T_Tcs = np.linspace(0.5, 1.7, 30)  # T/Tc
+Tc = 2.268  # Onsager's Tc
+
+for n in Ns:
+    for i, T_Tc in enumerate(T_Tcs):
+        T = T_Tc*Tc
+        wd = 'magnetization/size-{0}/temp-{1}'.format(n, i)
+        if not os.path.exists(wd): 
+            os.makedirs(wd)
+        write_job_script(wd=wd, n=n, s= n * 100000, T=T, i=i, nprocs=2, q='*@@schneider')
+        run_job(wd)
+#+END_SRC
+
+#+RESULTS:
+
+
+*** Plotting
+
+#+BEGIN_SRC python
+import matplotlib.pyplot as plt
+import numpy as np
+
+indices, spins = np.loadtxt('/afs/crc.nd.edu/user/p/pmehta1/ising-monte-carlo/magnetization/size-50/temp-0/temp-0.out', unpack =True, skiprows = 500000)
+
+plt.plot(indices, spins)
+plt.show()
+#+END_SRC
+
+#+RESULTS:
+
 ** Gezelter's Code
 
 #+BEGIN_SRC python
@@ -231,8 +336,8 @@ plt.show()
 
 import Tkinter, numpy, random, math
 
-size = 50                           # number of sites in a lattice row (change if desired)
-squareWidth = 10                    # width of one site in pixels (change if desired)
+size = 100                           # number of sites in a lattice row (change if desired)
+squareWidth = 4                    # width of one site in pixels (change if desired)
 canvasWidth = size * squareWidth    # full width of canvas in pixels
 s = numpy.ones((size, size), int)   # 2D array of dipoles (1=up, -1=down)
 running = False                     # will be true when simulation is running
@@ -311,5 +416,53 @@ theWindow.mainloop()      # start the GUI event loop
 #+RESULTS:
 
 
+
+
+
+
+#+BEGIN_SRC sh
+#!/bin/bash
+
+for n in $(seq 230380 230409)
+
+do
+  qdel $n
+
+done
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+pmehta1 has registered the job 230380 for deletion
+pmehta1 has registered the job 230381 for deletion
+pmehta1 has registered the job 230382 for deletion
+pmehta1 has registered the job 230383 for deletion
+pmehta1 has registered the job 230384 for deletion
+pmehta1 has registered the job 230385 for deletion
+pmehta1 has registered the job 230386 for deletion
+pmehta1 has registered the job 230387 for deletion
+pmehta1 has registered the job 230388 for deletion
+pmehta1 has registered the job 230389 for deletion
+pmehta1 has registered the job 230390 for deletion
+pmehta1 has registered the job 230391 for deletion
+pmehta1 has registered the job 230392 for deletion
+pmehta1 has registered the job 230393 for deletion
+pmehta1 has registered the job 230394 for deletion
+pmehta1 has registered the job 230395 for deletion
+pmehta1 has registered the job 230396 for deletion
+pmehta1 has registered the job 230397 for deletion
+pmehta1 has registered the job 230398 for deletion
+pmehta1 has registered the job 230399 for deletion
+pmehta1 has registered the job 230400 for deletion
+pmehta1 has registered the job 230401 for deletion
+pmehta1 has registered the job 230402 for deletion
+pmehta1 has registered the job 230403 for deletion
+pmehta1 has registered the job 230404 for deletion
+pmehta1 has registered the job 230405 for deletion
+pmehta1 has registered the job 230406 for deletion
+pmehta1 has registered the job 230407 for deletion
+pmehta1 has registered the job 230408 for deletion
+pmehta1 has registered the job 230409 for deletion
+#+end_example
 
 
