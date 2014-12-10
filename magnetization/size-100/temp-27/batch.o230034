@@ -1,0 +1,7 @@
+[d6copt089:30991] *** Process received signal ***
+[d6copt089:30991] Signal: Bus error (7)
+[d6copt089:30991] Signal code: Non-existant physical address (2)
+[d6copt089:30991] Failing at address: 0x2b39b1def690
+[d6copt089:30991] [ 0] /lib64/libpthread.so.0() [0x3dd6c0f500]
+[d6copt089:30991] [ 1] /afs/crc.nd.edu/x86_64_linux/openmpi/1.6.3/intel-12.1/lib/libopen-rte.so.4(+0x35690) [0x2b39b1def690]
+[d6copt089:30991] *** End of error message ***

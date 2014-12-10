@@ -2,7 +2,6 @@
 from __future__ import division
 import numpy as np
 
-
 def init_lattice(n):
 
     '''Create a nxn lattice with random spin configuration'''
@@ -47,6 +46,35 @@ def ising(n=200, nsteps=500000, H=0, J=1, T=1):
         spins.append(spin)
     return lattice, energies, spins
 
+def ising1000(n=1000, nsteps=10000000000, H=0, J=1, T=1):
+
+    '''Ising Model Simulator. Special case for very large lattices.
+    Spin is written every 1000 steps.'''
+    
+    lattice = init_lattice(n)
+    energy = 0
+
+    spins = []
+    spin = np.sum(lattice)
+    for istep, step in enumerate(xrange(nsteps)):
+
+        i = np.random.randint(n)
+        j = np.random.randint(n)
+
+        # Periodic Boundary Condition
+        Sn = lattice[(i - 1) % n, j] + lattice[(i + 1) % n, j] + \
+             lattice[i, (j - 1) % n] + lattice[i, (j + 1) % n]
+
+        dE = deltaE(lattice[i, j], Sn, J, H)
+
+        if dE < 0 or np.random.random() < np.exp(-dE/T):
+            lattice[i, j] = -lattice[i, j]
+            energy += dE
+            spin += 2*lattice[i, j]
+        if istep % 1000 == 0:
+            spins.append(spin)
+    return lattice, spins
+
 def write_job_script(wd='./', n=10, s=1000, i=1, T=1., nprocs=1, pe='smp', name = 'batch', q = 'long'):
     '''
     This is a function that writes a script to submit MC jobs
@@ -59,8 +87,11 @@ def write_job_script(wd='./', n=10, s=1000, i=1, T=1., nprocs=1, pe='smp', name 
 #$ -cwd
 '''.format(name, pe, nprocs, q)
        
+    if nprocs > 1:
+        script+='mpirun -np $NSLOTS python /afs/crc.nd.edu/user/p/pmehta1/ising-monte-carlo/spins.py -n {0} -s {1} -i {2} -t {3} -w {4}'.format(n, s, i, T, wd)
 
-    script+='mpirun -np $NSLOTS python /afs/crc.nd.edu/user/p/pmehta1/ising-monte-carlo/spins.py -n {0} -s {1} -i {2} -t {3} -w {4}'.format(n, s, i, T, wd)
+    else:
+        script+='python /afs/crc.nd.edu/user/p/pmehta1/ising-monte-carlo/spins.py -n {0} -s {1} -i {2} -t {3} -w {4}'.format(n, s, i, T, wd)
 
     with open('{0}/qscript'.format(wd), 'w') as f:
         f.write(script)

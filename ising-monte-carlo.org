@@ -31,14 +31,13 @@ Here is a script that simulates the 2D Ising Model. The main ideas are as follow
 
 - If \Delta E is negative, we accept the new configuration
 
-- If \Delta E is positive, we select a random number between 0 and 1, and accept the configuration only if the number is less than \(e^{-\Delta E / k_{B}T}\). This is the Metropolis techinque. This saves computation time by seleting more probable configurations.
+- If \Delta E is positive, we select a random number between 0 and 1, and accept the configuration only if the number is less than \(e^{-\Delta E / k_{B}T}\). This is the Metropolis techinque. This saves computation time by selecting more probable configurations.
 
 - We use periodic boundary conditions. This effectively reduces the geometry of the problem to a torus.
   
 #+BEGIN_SRC python :tangle ising.py
 from __future__ import division
 import numpy as np
-
 
 def init_lattice(n):
 
@@ -55,7 +54,7 @@ def deltaE(S0, Sn, J, H):
     return 2 * S0 * (H + J * Sn)
 
 
-def ising(n=200, nsteps=500000, H=0, J=1, T=1):
+def ising(n=200, nsteps=500000, H=0, J=1, T=1, count_spins = False, ij = [1,1]):
 
     '''Ising Model Simulator'''
     
@@ -64,6 +63,7 @@ def ising(n=200, nsteps=500000, H=0, J=1, T=1):
     energies = []
     spins = []
     spin = np.sum(lattice)
+
     for step in xrange(nsteps):
 
         i = np.random.randint(n)
@@ -81,10 +81,40 @@ def ising(n=200, nsteps=500000, H=0, J=1, T=1):
             energies.append(energy)
          # Note that the spin is collected at every step
             spin += 2*lattice[i, j]
+        
+        if count_spins:
+            ispin = lattice[*ij]
         spins.append(spin)
     return lattice, energies, spins
 
+def ising1000(n=1000, nsteps=10000000000, H=0, J=1, T=1):
 
+    '''Ising Model Simulator. Special case for very large lattices.
+    Spin is written every 1000 steps.'''
+    
+    lattice = init_lattice(n)
+    energy = 0
+
+    spins = []
+    spin = np.sum(lattice)
+    for istep, step in enumerate(xrange(nsteps)):
+
+        i = np.random.randint(n)
+        j = np.random.randint(n)
+
+        # Periodic Boundary Condition
+        Sn = lattice[(i - 1) % n, j] + lattice[(i + 1) % n, j] + \
+             lattice[i, (j - 1) % n] + lattice[i, (j + 1) % n]
+
+        dE = deltaE(lattice[i, j], Sn, J, H)
+
+        if dE < 0 or np.random.random() < np.exp(-dE/T):
+            lattice[i, j] = -lattice[i, j]
+            energy += dE
+            spin += 2*lattice[i, j]
+        if istep % 1000 == 0:
+            spins.append(spin)
+    return lattice, spins
 
 def write_job_script(wd='./', n=10, s=1000, i=1, T=1., nprocs=1, pe='smp', name = 'batch', q = 'long'):
     '''
@@ -98,8 +128,11 @@ def write_job_script(wd='./', n=10, s=1000, i=1, T=1., nprocs=1, pe='smp', name 
 #$ -cwd
 '''.format(name, pe, nprocs, q)
        
+    if nprocs > 1:
+        script+='mpirun -np $NSLOTS python /afs/crc.nd.edu/user/p/pmehta1/ising-monte-carlo/spins.py -n {0} -s {1} -i {2} -t {3} -w {4}'.format(n, s, i, T, wd)
 
-    script+='mpirun -np $NSLOTS python /afs/crc.nd.edu/user/p/pmehta1/ising-monte-carlo/spins.py -n {0} -s {1} -i {2} -t {3} -w {4}'.format(n, s, i, T, wd)
+    else:
+        script+='python /afs/crc.nd.edu/user/p/pmehta1/ising-monte-carlo/spins.py -n {0} -s {1} -i {2} -t {3} -w {4}'.format(n, s, i, T, wd)
 
     with open('{0}/qscript'.format(wd), 'w') as f:
         f.write(script)
@@ -205,12 +238,12 @@ plt.show()
 
 
 ** Scripts
-
+   
 *** Submission python script
 #+BEGIN_SRC python :tangle spins.py
 #!/usr/bin/env python
 import os
-from ising import ising
+from ising import ising, ising1000
 import sys,getopt
 opts,args = getopt.getopt(sys.argv[1:],'n:s:i:t:w')
 
@@ -221,7 +254,11 @@ for key, val in opts:
     elif key == '-t': T = float(val)
     elif key == '-i': index = int(val)
     elif key == '-w': wd = str(val)
-lattice, energies, spins = ising(n=n, nsteps=nsteps, T=T)
+
+if n < 500:
+    lattice, energies, spins = ising(n=n, nsteps=nsteps, T=T)
+else:
+    lattice, spins = ising1000(n=n, nsteps=nsteps, T=T)
     
 with open(os.path.join(wd,'temp-{1}.out'.format(wd, index)), 'w') as f:
     for i, spin in enumerate(spins):
@@ -242,7 +279,7 @@ from ising import *
 import os
 
 Ns = [10, 20, 50, 100, 1000]  # System Size
-Ns = [1000]
+Ns = [100]
 T_Tcs = np.linspace(0.5, 1.7, 30)  # T/Tc
 Tc = 2.268  # Onsager's Tc
 
@@ -252,7 +289,10 @@ for n in Ns:
         wd = 'magnetization/size-{0}/temp-{1}'.format(n, i)
         if not os.path.exists(wd): 
             os.makedirs(wd)
-        write_job_script(wd=wd, n=n, s= n * 100000, T=T, i=i, nprocs=2, q='*@@schneider')
+        if n !=1000:
+            write_job_script(wd=wd, n=n, s= n * 1000000, T=T, i=i)
+        else:
+            write_job_script(wd=wd, n=n, s= n * 1000000, T=T, i=i, nprocs = 1, q ='long')
         run_job(wd)
 #+END_SRC
 
@@ -262,16 +302,140 @@ for n in Ns:
 *** Plotting
 
 #+BEGIN_SRC python
+from __future__ import division
 import matplotlib.pyplot as plt
-import numpy as np
+from ising import *
+import os
 
-indices, spins = np.loadtxt('/afs/crc.nd.edu/user/p/pmehta1/ising-monte-carlo/magnetization/size-50/temp-0/temp-0.out', unpack =True, skiprows = 500000)
+Ns = [10, 20, 50, 100, 1000]  # System Size
+T_Tcs = np.linspace(0.5, 1.7, 30)  # T/Tc
+Tc = 2.268  # Onsager's Tc
 
-plt.plot(indices, spins)
+for n in Ns:
+    avgspins = []
+    avgspinsqs = []
+    for i, T_Tc in enumerate(T_Tcs):
+        T = T_Tc*Tc
+        indices, spins = np.loadtxt('magnetization/size-{0}/temp-{1}/temp-{1}.out'.format(n,i), unpack =True)
+        spins = spins[int(len(spins)/2):]
+        avgspin = np.sum(np.abs(spins)) / n ** 2 / len(spins)
+        avgspinsq =  np.abs(np.sum(((np.abs(spins) / n ** 2) ** 2)) / len(spins) - avgspin) / T
+        avgspins.append(avgspin)
+        avgspinsqs.append(avgspinsq)
+    plt.plot(T_Tcs, avgspinsqs, 'o-')
+plt.savefig('images/susseptibility.png')
 plt.show()
 #+END_SRC
 
 #+RESULTS:
+
+[[./images/magnetization.png]]
+
+
+[[./images/susseptibility.png]]
+
+
+*** Finite Size Scaling
+
+#+BEGIN_SRC python
+from __future__ import division
+import numpy as np
+import matplotlib.pyplot as plt
+from pycse import nlinfit
+from ising import *
+
+Ns = [50]  # System Size
+T_Tcs = np.linspace(0.5, 1.7, 30)  # T/Tc
+Tc = 2.268  # Onsager's Tc
+
+for n in Ns:
+    avgspins = []
+    avgspinsqs = []
+    for i, T_Tc in enumerate(T_Tcs):
+        T = T_Tc*Tc
+        indices, spins = np.loadtxt('magnetization/size-{0}/temp-{1}/temp-{1}.out'.format(n,i), unpack =True)
+        spins = spins[int(len(spins)/2):]
+        avgspin = np.sum(np.abs(spins)) / n ** 2 / len(spins)
+        avgspinsq =  np.abs(np.sum(((np.abs(spins) / n ** 2) ** 2)) / len(spins) - avgspin) / T
+        avgspins.append(avgspin)
+        avgspinsqs.append(avgspinsq)
+
+
+# data
+Ts = T_Tcs * Tc
+plt.plot(Ts, avgspins, 'o')
+
+def M_fit(Ts, Tcinf, beta, a):
+    
+    M = a * np.abs((Ts - Tcinf) / Tcinf) ** beta
+    return M
+
+guess = [2.228, 0.125, 1]
+pars, pint, SE = nlinfit(M_fit, Ts[6:12], avgspins[6:12], guess, alpha=0.05)
+Tcinf, beta, a = pint
+Tfit = np.linspace(Ts[8], Ts[12])
+#Tfit = np.linspace(Ts.min(), Ts.max())
+print pars
+#M = M_fit(Tfit, *pars)
+#print np.size(Tfit), np.size(M)
+#print M
+plt.plot(Tfit, M_fit(Tfit, *pars))
+#plt.savefig('images/eos-uncertainty.png')
+
+#print '95% confidence intervals'
+#print 'V0 = {0} bohr**3'.format(V0)
+#print 'E0 = {0} Ha'.format(E0)
+#print 'B0 = {0} GPA'.format([x * 29421.010901602753 for x in B0])
+plt.show()
+#+END_SRC
+
+#+RESULTS:
+: [ 2.23332287  0.07938568  1.08890594]
+
+
+** Extra Credit
+
+#+BEGIN_SRC python
+from ising import *
+
+n = 20
+T = [0.5, 5.0]
+
+ij = [10, 10]
+
+
+
+#+END_SRC
+
+** Nlinfit test
+
+#+BEGIN_SRC python
+from pycse import *
+import matplotlib.pyplot as plt
+
+x = np.arange(10)
+y = x**2 + np.random.random(10)*2
+print x , y
+plt.plot(x,y)
+#plt.show()
+
+def func(x, a):
+
+   return x**a
+
+p, pint, se = nlinfit(func, x, y, 3)
+
+print p
+plt.plot(x, x**p)
+#def func
+plt.show()
+#+END_SRC
+
+#+RESULTS:
+: [0 1 2 3 4 5 6 7 8 9] [  0.14825736   1.16691747   4.22080684  10.17593107  16.1183198
+:   26.82922114  37.29249587  49.31862283  64.13961865  81.82408933]
+: [ 2.00562762]
+
 
 ** Gezelter's Code
 
@@ -325,9 +489,9 @@ plt.show()
 
 #+RESULTS:
 
-
+   
 ** Tinkter
-
+   
 #+BEGIN_SRC python
 # ising.py
 # Simulates the two-dimensional Ising model using the Metropolis algorithm
@@ -423,7 +587,7 @@ theWindow.mainloop()      # start the GUI event loop
 #+BEGIN_SRC sh
 #!/bin/bash
 
-for n in $(seq 230380 230409)
+for n in $(seq 230622 230657)
 
 do
   qdel $n
@@ -433,36 +597,82 @@ done
 
 #+RESULTS:
 #+begin_example
-pmehta1 has registered the job 230380 for deletion
-pmehta1 has registered the job 230381 for deletion
-pmehta1 has registered the job 230382 for deletion
-pmehta1 has registered the job 230383 for deletion
-pmehta1 has registered the job 230384 for deletion
-pmehta1 has registered the job 230385 for deletion
-pmehta1 has registered the job 230386 for deletion
-pmehta1 has registered the job 230387 for deletion
-pmehta1 has registered the job 230388 for deletion
-pmehta1 has registered the job 230389 for deletion
-pmehta1 has registered the job 230390 for deletion
-pmehta1 has registered the job 230391 for deletion
-pmehta1 has registered the job 230392 for deletion
-pmehta1 has registered the job 230393 for deletion
-pmehta1 has registered the job 230394 for deletion
-pmehta1 has registered the job 230395 for deletion
-pmehta1 has registered the job 230396 for deletion
-pmehta1 has registered the job 230397 for deletion
-pmehta1 has registered the job 230398 for deletion
-pmehta1 has registered the job 230399 for deletion
-pmehta1 has registered the job 230400 for deletion
-pmehta1 has registered the job 230401 for deletion
-pmehta1 has registered the job 230402 for deletion
-pmehta1 has registered the job 230403 for deletion
-pmehta1 has registered the job 230404 for deletion
-pmehta1 has registered the job 230405 for deletion
-pmehta1 has registered the job 230406 for deletion
-pmehta1 has registered the job 230407 for deletion
-pmehta1 has registered the job 230408 for deletion
-pmehta1 has registered the job 230409 for deletion
+pmehta1 has registered the job 230622 for deletion
+pmehta1 has registered the job 230623 for deletion
+pmehta1 has registered the job 230624 for deletion
+pmehta1 has registered the job 230625 for deletion
+pmehta1 has registered the job 230626 for deletion
+pmehta1 has registered the job 230627 for deletion
+pmehta1 has registered the job 230628 for deletion
+pmehta1 has registered the job 230629 for deletion
+pmehta1 has registered the job 230630 for deletion
+pmehta1 has registered the job 230631 for deletion
+pmehta1 has registered the job 230632 for deletion
+pmehta1 has registered the job 230633 for deletion
+pmehta1 has registered the job 230634 for deletion
+pmehta1 has registered the job 230635 for deletion
+pmehta1 has registered the job 230636 for deletion
+pmehta1 has registered the job 230637 for deletion
+pmehta1 has registered the job 230638 for deletion
+pmehta1 has registered the job 230639 for deletion
+pmehta1 has registered the job 230640 for deletion
+pmehta1 has registered the job 230641 for deletion
+pmehta1 has registered the job 230642 for deletion
+pmehta1 has registered the job 230643 for deletion
+pmehta1 has registered the job 230644 for deletion
+pmehta1 has registered the job 230645 for deletion
+pmehta1 has registered the job 230646 for deletion
+pmehta1 has registered the job 230647 for deletion
+pmehta1 has registered the job 230648 for deletion
+pmehta1 has registered the job 230649 for deletion
+pmehta1 has registered the job 230650 for deletion
+pmehta1 has registered the job 230651 for deletion
+pmehta1 has registered the job 230652 for deletion
+pmehta1 has registered the job 230653 for deletion
+pmehta1 has registered the job 230654 for deletion
+pmehta1 has registered the job 230655 for deletion
+pmehta1 has registered the job 230656 for deletion
+pmehta1 has registered the job 230657 for deletion
 #+end_example
 
+
+
+
+** Functional form test
+
+#+BEGIN_SRC python
+import numpy as np
+
+T = np.linspace(0.7, 2.0,100) *  2.268
+Tc = 2.268
+
+M = np.abs((T - Tc))**0.125
+
+import matplotlib.pyplot as plt
+plt.plot(T, M)
+print M
+plt.show()
+
+#+END_SRC
+
+#+RESULTS:
+#+begin_example
+[ 0.95300579  0.94768886  0.94215454  0.93638284  0.93035082  0.92403193
+  0.91739527  0.91040448  0.90301642  0.89517933  0.88683034  0.87789196
+  0.86826715  0.85783197  0.84642447  0.8338271   0.81973737  0.80371612
+  0.78508838  0.76273247  0.73455818  0.69586884  0.63121174  0.51006994
+  0.65616398  0.70940744  0.74404459  0.77010546  0.79115273  0.80888584
+  0.82425454  0.83784603  0.85004977  0.86113794  0.87130856  0.88071039
+  0.8894581   0.89764209  0.9053349   0.91259565  0.91947323  0.92600852
+  0.93223607  0.93818534  0.94388171  0.94934713  0.9546008   0.95965955
+  0.96453824  0.96925008  0.97380684  0.97821905  0.98249621  0.98664687
+  0.99067878  0.994599    0.99841395  1.00212951  1.00575108  1.00928359
+  1.01273163  1.01609939  1.01939079  1.02260943  1.02575869  1.02884168
+  1.03186134  1.03482037  1.03772133  1.04056662  1.04335846  1.04609897
+  1.04879012  1.05143379  1.05403174  1.05658562  1.059097    1.06156738
+  1.06399816  1.06639068  1.0687462   1.07106593  1.07335102  1.07560256
+  1.07782158  1.08000907  1.08216598  1.08429321  1.08639162  1.08846204
+  1.09050525  1.09252202  1.09451305  1.09647905  1.09842067  1.10033857
+  1.10223335  1.1041056   1.10595588  1.10778475]
+#+end_example
 

@@ -1,0 +1,6 @@
+#!/bin/bash
+#$ -N batch
+#$ -pe smp 1
+#$ -q long
+#$ -cwd
+mpirun -np $NSLOTS python /afs/crc.nd.edu/user/p/pmehta1/ising-monte-carlo/spins.py -n 10 -s 10000000 -i 28 -t 3.76175172414 -w magnetization/size-10/temp-28

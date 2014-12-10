@@ -1,0 +1,6 @@
+#!/bin/bash
+#$ -N batch
+#$ -pe smp 1
+#$ -q long
+#$ -cwd
+python /afs/crc.nd.edu/user/p/pmehta1/ising-monte-carlo/spins.py -n 100 -s 100000000 -i 26 -t 3.57405517241 -w magnetization/size-100/temp-26
