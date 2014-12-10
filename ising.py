@@ -17,7 +17,7 @@ def deltaE(S0, Sn, J, H):
     return 2 * S0 * (H + J * Sn)
 
 
-def ising(n=200, nsteps=500000, H=0, J=1, T=1):
+def ising(n=200, nsteps=500000, H=0, J=1, T=1, count_spins = False, countij = [1,1]):
 
     '''Ising Model Simulator'''
     
@@ -26,6 +26,9 @@ def ising(n=200, nsteps=500000, H=0, J=1, T=1):
     energies = []
     spins = []
     spin = np.sum(lattice)
+    icount, jcount = countij
+    counted_spins = [lattice[icount, jcount]]
+    counted_intervals = []
     for step in xrange(nsteps):
 
         i = np.random.randint(n)
@@ -43,8 +46,19 @@ def ising(n=200, nsteps=500000, H=0, J=1, T=1):
             energies.append(energy)
          # Note that the spin is collected at every step
             spin += 2*lattice[i, j]
+        
+        if count_spins:
+            ispin = lattice[icount, jcount]
+            if ispin != counted_spins[-1]:
+                counted_spins.append(ispin)
+                counted_interval = step - sum(counted_intervals)
+
+                counted_intervals.append(counted_interval)            
         spins.append(spin)
-    return lattice, energies, spins
+    if not count_spins:
+        return lattice, energies, spins
+    else:
+        return counted_spins, counted_intervals
 
 def ising1000(n=1000, nsteps=10000000000, H=0, J=1, T=1):
 
