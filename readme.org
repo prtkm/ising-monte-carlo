@@ -1,0 +1,11 @@
+* About
+
+This repository contains files for Monte-Carlo simulations of the 2-D Ising Model. It was written by Prateek Mehta and Hui Li as part of Dr. Gezelter's Statistical Mechnics class project at Notre Dame.
+
+Read the full org-document here.
+
+[[./ising-monte-carlo.org]]
+
+Alternately, get the pdf version here.
+
+[[./ising-monte-carlo.pdf]]

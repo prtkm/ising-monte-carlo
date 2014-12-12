@@ -17,9 +17,18 @@ def deltaE(S0, Sn, J, H):
     return 2 * S0 * (H + J * Sn)
 
 
-def ising(n=200, nsteps=500000, H=0, J=1, T=1, count_spins = False, countij = [1,1]):
+def ising(n=200, 
+          nsteps=500000,
+          H=0,
+          J=1,
+          T=1,
+          count_spins = False,
+          countij = [1,1],
+          correlation=False,
+          corr_ij=[0,0],
+          corr_r=1):
 
-    '''Ising Model Simulator'''
+    '''Ising Model Simulator. If count_spins = True, only flipping behavior of 1 site is studied.'''
     
     lattice = init_lattice(n)
     energy = 0
@@ -29,6 +38,10 @@ def ising(n=200, nsteps=500000, H=0, J=1, T=1, count_spins = False, countij = [1
     icount, jcount = countij
     counted_spins = [lattice[icount, jcount]]
     counted_intervals = []
+    icorr, jcorr = corr_ij
+    Sis = []
+    SiSjs = []
+    
     for step in xrange(nsteps):
 
         i = np.random.randint(n)
@@ -53,17 +66,33 @@ def ising(n=200, nsteps=500000, H=0, J=1, T=1, count_spins = False, countij = [1
                 counted_spins.append(ispin)
                 counted_interval = step - sum(counted_intervals)
 
-                counted_intervals.append(counted_interval)            
+                counted_intervals.append(counted_interval)
+        if correlation:
+            Sn_corr = lattice[(icorr - corr_r) % n, jcorr] + lattice[(icorr + corr_r) % n, jcorr] + \
+                      lattice[icorr, (jcorr - corr_r) % n] + lattice[icorr, (jcorr + corr_r) % n]
+            Si = lattice[icorr, jcorr]
+            SiSj = Si * Sn_corr / 4.0
+            Sis.append(Si)
+            SiSjs.append(SiSj)
+            
         spins.append(spin)
-    if not count_spins:
-        return lattice, energies, spins
-    else:
+
+
+    if correlation:
+        return Sis, SiSjs
+    
+    if count_spins:
         return counted_spins, counted_intervals
+        
+    return lattice, energies, spins
+    
 
 def ising1000(n=1000, nsteps=10000000000, H=0, J=1, T=1):
 
     '''Ising Model Simulator. Special case for very large lattices.
-    Spin is written every 1000 steps.'''
+    To reduce memory usage,
+    Spin is added to the array every 1000 steps.
+    Energies are not returned.'''
     
     lattice = init_lattice(n)
     energy = 0
@@ -89,11 +118,13 @@ def ising1000(n=1000, nsteps=10000000000, H=0, J=1, T=1):
             spins.append(spin)
     return lattice, spins
 
+
+
 def write_job_script(wd='./', n=10, s=1000, i=1, T=1., nprocs=1, pe='smp', name = 'batch', q = 'long'):
     '''
     This is a function that writes a script to submit MC jobs
     '''
-    
+    py_file = '/afs/crc.nd.edu/user/p/pmehta1/ising-monte-carlo/spins.py'
     script='''#!/bin/bash
 #$ -N {0}
 #$ -pe {1} {2}
@@ -102,15 +133,19 @@ def write_job_script(wd='./', n=10, s=1000, i=1, T=1., nprocs=1, pe='smp', name 
 '''.format(name, pe, nprocs, q)
        
     if nprocs > 1:
-        script+='mpirun -np $NSLOTS python /afs/crc.nd.edu/user/p/pmehta1/ising-monte-carlo/spins.py -n {0} -s {1} -i {2} -t {3} -w {4}'.format(n, s, i, T, wd)
+        cmd = 'mpirun -np $NSLOTS python'
+        script+='{6} {5} -n {0} -s {1} -i {2} -t {3} -w {4}'.format(n, s, i, T, wd, py_file, cmd)
 
     else:
-        script+='python /afs/crc.nd.edu/user/p/pmehta1/ising-monte-carlo/spins.py -n {0} -s {1} -i {2} -t {3} -w {4}'.format(n, s, i, T, wd)
+        script+='python {5} -n {0} -s {1} -i {2} -t {3} -w {4}'.format(n, s, i, T, wd, py_file)
 
     with open('{0}/qscript'.format(wd), 'w') as f:
         f.write(script)
 
 def run_job(wd):
+    '''
+    Submit job to the queue
+    '''
     import os
     from subprocess import Popen, PIPE
     cwd = os.getcwd()
@@ -122,6 +157,7 @@ def run_job(wd):
         raise Exception('something went wrong in qsub:\n\n{0}'.format(err))
     jobid = out.split()[2]
     f = open('jobid', 'w')
+  
     f.write(jobid)
     f.close()
     os.chdir(cwd)
