@@ -1,57 +1,88 @@
-#+TITLE: Monte-Carlo Simulations of the 2-D Ising Model
-#+AUTHOR: Prateek Mehta and Hui Li
-#+DATE: \today
-#+LATEX_CLASS: cmu-article
-#+OPTIONS: ^:{}
-#+OPTIONS: toc:nil
-#+OPTIONS: tex:t
+% Created 2014-12-12 Fri 11:49
+\documentclass{article}
+\usepackage[top=1in, bottom=1.in, left=1in, right=1in]{geometry}
+  
+
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage{fixltx2e}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{float}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{textcomp}
+\usepackage{marvosym}
+\usepackage{wasysym}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage[version=3]{mhchem}
+\usepackage[numbers,super,sort&compress]{natbib}
+\usepackage{natmove}
+\usepackage{url}
+\usepackage{minted}
+\usepackage{underscore}
+\usepackage[linktocpage,pdfstartview=FitH,colorlinks,
+linkcolor=blue,anchorcolor=blue,
+citecolor=blue,filecolor=blue,menucolor=blue,urlcolor=blue]{hyperref}
+\usepackage{attachfile}
+\author{Prateek Mehta and Hui Li}
+\date{\today}
+\title{Monte-Carlo Simulations of the 2-D Ising Model}
+\begin{document}
 
 \maketitle
 \tableofcontents
 
-* A brief note about this document
-  
-This document was prepared with Emacs [[http://orgmode.org][orgmode]]. All the code was written and executed within the org-document and the results were captured in place. It has been exported into a latex [[./ising-monte-carlo.pdf][pdf]] You can get the original org-file and all the other relevant files at this git repo: https://github.com/prtkm/ising-monte-carlo. If you are reading the pdf you can view the source by clicking here: [[attachfile:ising-monte-carlo.org]] (Mac Preview does not read this attachment).
+\section{A brief note about this document}
+\label{sec-1}
 
-* A reliable random number generator
+This document was prepared with Emacs \href{http://orgmode.org}{orgmode}. All the code was written and executed within the org-document and the results were captured in place. It has been exported into a latex \href{./ising-monte-carlo.pdf}{pdf} You can get the original org-file and all the other relevant files at this git repo: \url{https://github.com/prtkm/ising-monte-carlo}. If you are reading the pdf you can view the source by clicking here: \attachfile{ising-monte-carlo.org} (Mac Preview does not read this attachment).
 
-For reliable Monte-Carlo simulations, we need a good random number generator. We shall use  Python's =numpy.random=. It uses the /Mersenne twister/ pseudo-random number generator, so we should expect to get a uniform random distribution. We test this here. Let us generate a 10000 random numbers and plot them.
+\section{A reliable random number generator}
+\label{sec-2}
 
-#+BEGIN_SRC python
+For reliable Monte-Carlo simulations, we need a good random number generator. We shall use  Python's \texttt{numpy.random}. It uses the \emph{Mersenne twister} pseudo-random number generator, so we should expect to get a uniform random distribution. We test this here. Let us generate a 10000 random numbers and plot them.
+
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos]{python}
 import numpy as np
 import matplotlib.pyplot as plt
 
 plt.plot(range(10000), np.random.random(10000), '.')
 plt.savefig('images/numpy-random.png')
 plt.show()
-#+END_SRC
+\end{minted}
 
-#+RESULTS:
-
-[[./images/numpy-random.png]]
+\includegraphics[width=.9\linewidth]{./images/numpy-random.png}
 
 That looks pretty uniform!
 
 
 
-* 2-D Ising Model Simulator
+\section{2-D Ising Model Simulator}
+\label{sec-3}
 
 The main ideas to simulate the 2-D Ising Model using Metropolis Monte Carlo are as follows:
 
--  We create a n \times n lattice with a random spin configuration
+\begin{itemize}
+\item We create a n \texttimes{} n lattice with a random spin configuration
 
-- For the purposes of our Monte Carlo simulation we start off by randomly flipping a spin and calculate the change in energy, \Delta E
+\item For the purposes of our Monte Carlo simulation we start off by randomly flipping a spin and calculate the change in energy, $\Delta$ E
 
-- If \Delta E is negative, we accept the new configuration and move to the next step
+\item If $\Delta$ E is negative, we accept the new configuration and move to the next step
 
-- If \Delta E is positive, we select a random number between 0 and 1, and accept the configuration only if the number is less than \(e^{-\Delta E / k_{B}T}\). This is the Metropolis techinque. This saves computation time by selecting the more probable configurations.
+\item If $\Delta$ E is positive, we select a random number between 0 and 1, and accept the configuration only if the number is less than \(e^{-\Delta E / k_{B}T}\). This is the Metropolis techinque. This saves computation time by selecting the more probable configurations.
 
-- We use periodic boundary conditions. This effectively reduces the geometry of the problem to a torus.
+\item We use periodic boundary conditions. This effectively reduces the geometry of the problem to a torus.
 
-- To simulate over a range of temperatures, we will submit jobs to the queue system for every temperature.  This is useful, especially for large lattice sizes where a lot of simulations are required to reach convergence. We have found that at large lattices flipping one spin per step is pretty inefficient (for a 1000 \times 1000 lattice, we are practically flipping one spin in a million!). A better approach than ours is probably needed in such cases, maybe flipping multiple spins at the same time. 
-  
+\item To simulate over a range of temperatures, we will submit jobs to the queue system for every temperature.  This is useful, especially for large lattice sizes where a lot of simulations are required to reach convergence. We have found that at large lattices flipping one spin per step is pretty inefficient (for a 1000 \texttimes{} 1000 lattice, we are practically flipping one spin in a million!). A better approach than ours is probably needed in such cases, maybe flipping multiple spins at the same time.
+\end{itemize}
+
 Here is our main script that does all the work. We write this out to our system for use later.
-#+BEGIN_SRC python :tangle ising.py
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos]{python}
 from __future__ import division
 import numpy as np
 
@@ -215,17 +246,16 @@ def run_job(wd):
     f.write(jobid)
     f.close()
     os.chdir(cwd)
-    return out.strip()    
-#+END_SRC
-
-#+RESULTS:
+    return out.strip()
+\end{minted}
 
 
-* Average Spin Trajectories
-   
+\section{Average Spin Trajectories}
+\label{sec-4}
+
 Now we plot the average spin trajectories at three different temperatures. The spin is collected at every step of the Monte Carlo simulation, regardless of whether we accepted the flip or not.
 
-#+BEGIN_SRC python
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos]{python}
 import matplotlib.pyplot as plt
 from ising import *
 
@@ -242,25 +272,24 @@ plt.ylabel('Average Spin')
 plt.ylim(-1.2, 1.2)
 plt.savefig('images/average-spin.png')
 plt.show()
+\end{minted}
 
-#+END_SRC
+\includegraphics[width=.9\linewidth]{./images/average-spin.png}
 
-#+RESULTS:
-
-[[./images/average-spin.png]]
-
-This looks pretty much like what one would expect. At a low temperature the average spin per site is 1, meaning that all the points in the lattice have the same spin. At a temperature close to Onsager's T_{c}, the system has an intermediate spin, and at a high temperature, the system has no net spin. The high and low temperature plots seem to converge faster than the one intermediate temperature. We also noticed that the simulations were getting stuck in a local minima from time to time, though we have not shown that here.
+This looks pretty much like what one would expect. At a low temperature the average spin per site is 1, meaning that all the points in the lattice have the same spin. At a temperature close to Onsager's T$_{\text{c}}$, the system has an intermediate spin, and at a high temperature, the system has no net spin. The high and low temperature plots seem to converge faster than the one intermediate temperature. We also noticed that the simulations were getting stuck in a local minima from time to time, though we have not shown that here.
 
 
 
-* Magnetization and Susceptibility
+\section{Magnetization and Susceptibility}
+\label{sec-5}
 In this section, we calculate the magnetization and susceptibility at different lattice sizes and temperatures. 
 
-** Submission to the queue
+\subsection{Submission to the queue}
+\label{sec-5-1}
 
 To simulate things for multiple temperatures and lattice sizes, we submited jobs to the queueing system. This is the python script that we will execute in the queue.
 
-#+BEGIN_SRC python :tangle spins.py
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos]{python}
 #!/usr/bin/env python
 import os
 from ising import ising, ising1000
@@ -283,14 +312,12 @@ else:
 with open(os.path.join(wd,'temp-{1}.out'.format(wd, index)), 'w') as f:
     for i, spin in enumerate(spins):
         if i % 1000 == 0:
-            f.write("{0}\t{1}\n".format(i, spin))   
-#+END_SRC
-
-#+RESULTS:
+            f.write("{0}\t{1}\n".format(i, spin))
+\end{minted}
 
 We submit jobs here for multiple lattice sizes and temperatures.
 
-#+BEGIN_SRC python
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos]{python}
 import matplotlib.pyplot as plt
 from ising import *
 import os
@@ -310,14 +337,13 @@ for n in Ns:
         else:
             write_job_script(wd=wd, n=n, s= n * 1000000, T=T, i=i, nprocs = 1, q ='long')
         run_job(wd)
-#+END_SRC
+\end{minted}
 
-#+RESULTS:
-
-** Magnetization
+\subsection{Magnetization}
+\label{sec-5-2}
 Here we plot the magnetization. We see that for larger lattice sizes, the system has not reached equilibirum and the data is very noisy. Otherwise the plot matches what is known, i.e, full magnetization at low temperatures, disorder at higher temperatures, with a transition at the critical temperature. The transition is sharper at larger lattice sizes. 
 
-#+BEGIN_SRC python
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos]{python}
 from __future__ import division
 import matplotlib.pyplot as plt
 from ising import *
@@ -342,17 +368,16 @@ plt.ylabel('<M$_{L}$>', fontsize = 16)
 plt.legend()
 plt.savefig('images/magnetization.png')
 plt.show()
-#+END_SRC
+\end{minted}
 
-#+RESULTS:
+\includegraphics[width=.9\linewidth]{./images/magnetization.png}
 
-[[./images/magnetization.png]]
+\subsection{Susceptibility}
+\label{sec-5-3}
 
-** Susceptibility
+Susceptibility is the second derivative of the energy and measures the extent to which the lattice will be magnitized. It is discontinuous at the critical temperature. We see that the peak gets sharper, and T/T$_{\text{c}}$ gets closer to unity with increasing lattice size. This means that larger lattices give better approximations of Onsager's T$_{\text{c}}$, and an inifite lattice would have exact resemblance. The data looks very noisy at high temperatures!
 
-Susceptibility is the second derivative of the energy and measures the extent to which the lattice will be magnitized. It is discontinuous at the critical temperature. We see that the peak gets sharper, and T/T_{c} gets closer to unity with increasing lattice size. This means that larger lattices give better approximations of Onsager's T_{c}, and an inifite lattice would have exact resemblance. The data looks very noisy at high temperatures!
-
-#+BEGIN_SRC python
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos]{python}
 from __future__ import division
 import matplotlib.pyplot as plt
 from ising import *
@@ -380,22 +405,22 @@ plt.ylabel('$\chi$', fontsize = 16)
 plt.legend()
 plt.savefig('images/susseptibility.png')
 plt.show()
-#+END_SRC
+\end{minted}
 
-#+RESULTS:
-
-[[./images/susseptibility.png]]
+\includegraphics[width=.9\linewidth]{./images/susseptibility.png}
 
 
 
-* Finite Size Scaling
+\section{Finite Size Scaling}
+\label{sec-6}
 
-We know that in the infinite size limit, all observables behave as \( O \propto |T - T_{c}|^{\alpha}\). To estimate the value of T_{c} and the critical exponent for the magnetization (\Beta), from our simulations, we will do a non linear fit of our data to this relation. For a system size of 50 let us run a few simulations around the critical point so that we can get a good fit it to our scaling relation.
+We know that in the infinite size limit, all observables behave as \( O \propto |T - T_{c}|^{\alpha}\). To estimate the value of T$_{\text{c}}$ and the critical exponent for the magnetization (B), from our simulations, we will do a non linear fit of our data to this relation. For a system size of 50 let us run a few simulations around the critical point so that we can get a good fit it to our scaling relation.
 
-** Job Submission
+\subsection{Job Submission}
+\label{sec-6-1}
 
 Here is a script that submits a 100 jobs at different temperatures around the critical point.
-#+BEGIN_SRC python
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos]{python}
 import matplotlib.pyplot as plt
 from ising import *
 import os
@@ -412,15 +437,14 @@ for n in Ns:
             os.makedirs(wd)
         write_job_script(wd=wd, n=n, s= n * 1000000, T=T, i=i)
         run_job(wd)
-#+END_SRC
+\end{minted}
 
-#+RESULTS:
+\subsection{Fitting}
+\label{sec-6-2}
 
-** Fitting
+Now we are ready to perform the fitting. We select 40 values on the left of the expected Onsager value for T$_{\text{c}}$ and do a nonlinear fit.
 
-Now we are ready to perform the fitting. We select 40 values on the left of the expected Onsager value for T_{c} and do a nonlinear fit.
-
-#+BEGIN_SRC python :results raw
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos]{python}
 from __future__ import division
 import numpy as np
 np.set_printoptions(precision=3)
@@ -472,31 +496,33 @@ plt.xlabel('T$', fontsize=16)
 plt.ylabel('<M$_{50}$>', fontsize=16)
 plt.savefig('images/finite-size-scaling.png')
 plt.show()
-#+END_SRC
+\end{minted}
 
-#+RESULTS:
-T_{c} = 2.275 (95% confidence interval = 2.259 2.291])
+T$_{\text{c}}$ = 2.275 (95\% confidence interval = 2.259 2.291])
 
-\beta = 0.111 (95% confidence interval = [0.096 0.127])
+$\beta$ = 0.111 (95\% confidence interval = [0.096 0.127])
 
-[[./images/finite-size-scaling.png]]
+\includegraphics[width=.9\linewidth]{./images/finite-size-scaling.png}
 
 Looks like its a pretty good fit. We almost exactly reproduce the literature values!
 
 
-* Correlation Function
-  
+\section{Correlation Function}
+\label{sec-7}
+
 The correlation function is given by \(<\sigma_{i} \sigma_{j}> - <\sigma_{i}><\sigma_{j}>\). 
 
-- Let us consider a spin in a 20 \times 20 lattice, say, [i, j].
+\begin{itemize}
+\item Let us consider a spin in a 20 \texttimes{} 20 lattice, say, [i, j].
 
-- Now, at a given separation, r, we can have a spin in four directions, given by [i, j + r], [i, j - r], [i + r, 10], [i - r, 10]. 
+\item Now, at a given separation, r, we can have a spin in four directions, given by [i, j + r], [i, j - r], [i + r, 10], [i - r, 10].
 
-- At this point we can calculate the correlation function for various values of r and at different temperatures.
+\item At this point we can calculate the correlation function for various values of r and at different temperatures.
+\end{itemize}
 
 Here is the code that does this.
 
-#+BEGIN_SRC python
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos]{python}
 from __future__ import division
 from ising import *
 import matplotlib.pyplot as plt
@@ -525,16 +551,15 @@ plt.ylabel('Correlation Function', fontsize = 16)
 plt.legend()
 plt.savefig('images/correlation.png')
 plt.show()
-#+END_SRC
+\end{minted}
 
-#+RESULTS:
-
-[[./images/correlation.png]]
+\includegraphics[width=.9\linewidth]{./images/correlation.png}
 
 It looks like the correlation function decays pretty fast at low and high temperatures because the spin correlates the most with its nearest neighbours and there is no significant long range correlation. However, the correlation function maximum at the critical temperature and we see long range correlation, probably because of the net magnetization of the system.
 
 
-* A little bit about Umbrella Sampling
+\section{A little bit about Umbrella Sampling}
+\label{sec-8}
 
 Umbrella sampling is a non-Boltzmann sampling technique commonly used in systems where the ergodic behavior is hindered by the energy landscape. For example if there is an energy barrier separating two configurations of the system, it might suffer from poor sampling if Metropolis Monte Carlo is used. This is because in the Metropolis sampling, since the probability of overcoming the barrier is low, configurations on either side of the barrier may be poorly sampled, or even unsampled, by the simulaiton. For example, the melting of a solid has a barrier for phase transition, and a Metropolis simulation might not adequately sample both the solid phase and the liquid phase.
 
@@ -543,11 +568,12 @@ In umbrella sampling, the Boltzmann weighting for Monte Carlo sampling is replac
 We didn't have time to complete the problem in Chandler 6.10, and it is not shown here.
 
 
-* Flipping behavior of a single spin
+\section{Flipping behavior of a single spin}
+\label{sec-9}
 
 We see that at high temperatures, the spin flips at short intervals. As we decrease the temperature, the spin hardly flips because the system becomes ordered.
 
-#+BEGIN_SRC python
+\begin{minted}[frame=lines,fontsize=\scriptsize,linenos]{python}
 from ising import *
 import matplotlib.pyplot as plt
 temperatures = np.linspace(1.7, 0.5, 6) * 2.26
@@ -570,9 +596,8 @@ for i, T in enumerate(temperatures):
 plt.tight_layout()
 plt.savefig('images/histograms.png')
 plt.show()
-#+END_SRC
+\end{minted}
 
-#+RESULTS:
-
-[[./images/histograms.png]]
-
+\includegraphics[width=.9\linewidth]{./images/histograms.png}
+% Emacs 24.3.1 (Org mode 8.2.10)
+\end{document}
