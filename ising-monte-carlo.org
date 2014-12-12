@@ -420,7 +420,7 @@ for n in Ns:
 
 Now we are ready to perform the fitting. We select 40 values on the left of the expected Onsager value for T_{c} and do a nonlinear fit.
 
-#+BEGIN_SRC python :results raw
+#+BEGIN_SRC python :results raw :exports both
 from __future__ import division
 import numpy as np
 np.set_printoptions(precision=3)
