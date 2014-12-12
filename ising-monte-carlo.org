@@ -250,7 +250,7 @@ plt.show()
 
 [[./images/average-spin.png]]
 
-This looks pretty much like what one would expect. At a low temperature the average spin per site is 1, meaning that all the points in the lattice have the same spin. At a temperature close to Onsager's T_{c}, the system has an intermediate spin, and at a high temperature, the system has no net spin. The high and low temperature plots seem to converge faster than the one intermediate temperature. We also noticed that the simulations were getting stuck in a local minima from time to time, though we have not shown that here.
+This looks pretty much like what one would expect. At a low temperature the average spin per site is 1, meaning that all the points in the lattice have the same spin. At a temperature close to Onsager's T_{c}, the system has an intermediate spin, and at a high temperature, the system has no net spin. 
 
 
 
@@ -292,7 +292,6 @@ with open(os.path.join(wd,'temp-{1}.out'.format(wd, index)), 'w') as f:
 We submit jobs here for multiple lattice sizes and temperatures.
 
 #+BEGIN_SRC python
-import matplotlib.pyplot as plt
 from ising import *
 import os
 
