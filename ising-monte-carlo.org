@@ -13,6 +13,7 @@
   
 This document was prepared with Emacs [[http://orgmode.org][orgmode]]. All the code was written and executed within the org-document and the results were captured in place. It has been exported into a latex [[./ising-monte-carlo.pdf][pdf]] You can get the original org-file and all the other relevant files at this git repo: https://github.com/prtkm/ising-monte-carlo. If you are reading the pdf you can view the source by clicking here: [[attachfile:ising-monte-carlo.org]] (Mac Preview does not read this attachment).
 
+
 * A reliable random number generator
 
 For reliable Monte-Carlo simulations, we need a good random number generator. We shall use  Python's =numpy.random=. It uses the /Mersenne twister/ pseudo-random number generator, so we should expect to get a uniform random distribution. We test this here. Let us generate a 10000 random numbers and plot them.

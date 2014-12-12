@@ -9,3 +9,4 @@ Read the full org-document here.
 Alternately, get the pdf version here.
 
 [[./ising-monte-carlo.pdf]]
+
