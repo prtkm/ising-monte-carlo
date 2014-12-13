@@ -1,4 +1,4 @@
-% Created 2014-12-12 Fri 11:55
+% Created 2014-12-13 Sat 15:20
 \documentclass{article}
 \usepackage[top=1in, bottom=1.in, left=1in, right=1in]{geometry}
   
@@ -41,6 +41,7 @@ citecolor=blue,filecolor=blue,menucolor=blue,urlcolor=blue]{hyperref}
 \label{sec-1}
 
 This document was prepared with Emacs \href{http://orgmode.org}{orgmode}. All the code was written and executed within the org-document and the results were captured in place. It has been exported into a latex \href{./ising-monte-carlo.pdf}{pdf} You can get the original org-file and all the other relevant files at this git repo: \url{https://github.com/prtkm/ising-monte-carlo}. If you are reading the pdf you can view the source by clicking here: \attachfile{ising-monte-carlo.org} (Mac Preview does not read this attachment).
+
 
 \section{A reliable random number generator}
 \label{sec-2}
@@ -276,7 +277,7 @@ plt.show()
 
 \includegraphics[width=.9\linewidth]{./images/average-spin.png}
 
-This looks pretty much like what one would expect. At a low temperature the average spin per site is 1, meaning that all the points in the lattice have the same spin. At a temperature close to Onsager's T$_{\text{c}}$, the system has an intermediate spin, and at a high temperature, the system has no net spin. The high and low temperature plots seem to converge faster than the one intermediate temperature. We also noticed that the simulations were getting stuck in a local minima from time to time, though we have not shown that here.
+This looks pretty much like what one would expect. At a low temperature the average spin per site is 1, meaning that all the points in the lattice have the same spin. At a temperature close to Onsager's T$_{\text{c}}$, the system has an intermediate spin, and at a high temperature, the system has no net spin. 
 
 
 
@@ -318,7 +319,6 @@ with open(os.path.join(wd,'temp-{1}.out'.format(wd, index)), 'w') as f:
 We submit jobs here for multiple lattice sizes and temperatures.
 
 \begin{minted}[frame=lines,fontsize=\scriptsize,linenos]{python}
-import matplotlib.pyplot as plt
 from ising import *
 import os
 
@@ -590,7 +590,7 @@ for i, T in enumerate(temperatures):
     plt.subplot(3,2,i+1)
     plt.hist(counted_intervals, 50)
     plt.locator_params(nbins=4)
-    plt.title('T/T$_{{c}}$ = {0}'.format(T))
+    plt.title('T = {0}'.format(T))
     plt.xlabel('Flip Interval Frequency')
     plt.ylabel('No. of occurances')
 plt.tight_layout()
